@@ -1,68 +1,47 @@
 use clap::Clap;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::prelude::*;
 
 /// This doc string acts as a help message when the user runs '--help'
 /// as do all doc strings on fields
 #[derive(Clap)]
-#[clap(version = "1.0", author = "Alistair Israel <aisrael@gmail.com>")]
+#[clap(version = clap::crate_version!(), author = "Alistair A. Israel <aisrael@gmail.com>")]
 struct Opts {
     /// Sets a custom config file. Could have been an Option<T> with no default too
-    #[clap(short, long, default_value = "default.conf")]
-    config: String,
-    /// Some input. Because this isn't an Option<T> it's required to be used
-    input: String,
-    /// A level of verbosity, and can be used multiple times
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: i32,
-    #[clap(subcommand)]
-    subcmd: SubCommand,
+    #[clap(long)]
+    cacert: Option<String>,
 }
 
-#[derive(Clap)]
-enum SubCommand {
-    #[clap(version = "1.3", author = "Someone E. <someone_else@other.com>")]
-    Test(Test),
-}
-
-/// A subcommand for controlling testing
-#[derive(Clap)]
-struct Test {
-    /// Print debug info
-    #[clap(short)]
-    debug: bool,
-}
-
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // println!(concat!("doggo ", clap::crate_version!()));
     let opts: Opts = Opts::parse();
 
-    // Gets a value for config if supplied by user, or defaults to "default.conf"
-    println!("Value for config: {}", opts.config);
-    println!("Using input file: {}", opts.input);
+    let mut builder = reqwest::blocking::Client::builder();
+    if let Some(cacert) = opts.cacert {
+        println!("cacert: {}", cacert);
 
-    // Vary the output based on how many times the user used the "verbose" flag
-    // (i.e. 'myprog -v -v -v' or 'myprog -vvv' vs 'myprog -v'
-    match opts.verbose {
-        0 => println!("No verbose info"),
-        1 => println!("Some verbose info"),
-        2 => println!("Tons of verbose info"),
-        3 | _ => println!("Don't be crazy"),
-    }
-
-    // You can handle information about subcommands by requesting their matches by name
-    // (as below), requesting just the name used, or both at the same time
-    match opts.subcmd {
-        SubCommand::Test(t) => {
-            if t.debug {
-                println!("Printing debug info...");
-            } else {
-                println!("Printing normally...");
-            }
+        let mut buf = Vec::new();
+        File::open(&cacert)?.read_to_end(&mut buf)?;
+        println!("vec: {}", buf.len());
+        if let Ok(cert) = reqwest::Certificate::from_pem(&buf) {
+            builder = builder.add_root_certificate(cert);
+        } else if let Ok(cert) = reqwest::Certificate::from_der(&buf) {
+            builder = builder.add_root_certificate(cert);
+        } else {
+            println!("Error reading certificate {}!", cacert);
+            std::process::exit(1);
         }
     }
 
-    let resp = reqwest::blocking::get("https://httpbin.org/ip")
-        .unwrap()
-        .json::<HashMap<String, String>>()
-        .unwrap();
+    let dd_api_key = std::env::var("DD_API_KEY")?;
+
+    let client = &builder.use_rustls_tls().build()?;
+    let resp = client
+        .get("https://api.datadoghq.com/api/v1/validate")
+        .header("DD-API-KEY", dd_api_key)
+        .send()?
+        .json::<HashMap<String, serde_json::value::Value>>()?;
     println!("{:#?}", resp);
+    Ok(())
 }
