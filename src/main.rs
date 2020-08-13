@@ -31,9 +31,42 @@ struct Opts {
 
 /// The command to execute
 #[derive(Clap)]
-pub enum Command {
+enum Command {
     #[clap()]
     Authenticate,
+    #[clap()]
+    Metric(Metric),
+}
+
+/// Post metrics
+#[derive(Clap)]
+struct Metric {
+    #[clap(subcommand)]
+    subcommand: MetricSubcommand,
+}
+
+/// The metric subcommand
+#[derive(Clap)]
+enum MetricSubcommand {
+    #[clap()]
+    Post(Post),
+}
+
+/// Post metrics
+#[derive(Clap)]
+struct Post {
+    /// scopes your metric to a specific host (default to the local host name)
+    #[clap(long)]
+    host: Option<String>,
+    /// type of the metric - gauge(32bit float) or counter(64bit integer)
+    #[clap(name = "type", long)]
+    metric_type: String,
+    /// metric name
+    #[clap()]
+    name: String,
+    /// metric value
+    #[clap()]
+    value: String,
 }
 
 fn build_context_from_opts(opts: &Opts) -> Context {
@@ -55,7 +88,15 @@ fn build_context_from_opts(opts: &Opts) -> Context {
     } else if let Ok(app_key) = std::env::var("DD_APP_KEY") {
         Some(app_key)
     } else {
-        None
+        match &opts.command {
+            Command::Metric(_) => {
+                println!(
+                    "No --app-key provided and neither $DATADOG_APP_KEY nor $DD_APP_KEY are set!"
+                );
+                std::process::exit(1);
+            }
+            _ => None,
+        }
     };
 
     Context {
@@ -65,18 +106,33 @@ fn build_context_from_opts(opts: &Opts) -> Context {
     }
 }
 
+fn executable_from_opts(opts: Opts) -> Box<dyn Executable> {
+    match opts.command {
+        Command::Authenticate => Box::new(doggo::commands::Authenticate::default()),
+        Command::Metric(metric) => match metric.subcommand {
+            MetricSubcommand::Post(post) => {
+                let hostname = "ada-aisrael.local".into();
+                Box::new(doggo::commands::PostMetric {
+                    host: hostname,
+                    metric_type: post.metric_type,
+                    name: post.name,
+                    value: post.value,
+                })
+            }
+        },
+    }
+}
+
 fn main() {
     let opts: Opts = Opts::parse();
     let context = build_context_from_opts(&opts);
-
-    let command = match opts.command {
-        Command::Authenticate => doggo::commands::Authenticate::default(),
-    };
+    let quiet = opts.quiet;
+    let command = executable_from_opts(opts);
 
     match command.execute(&context) {
         Ok(resp) => {
             let status = resp.status();
-            if !opts.quiet {
+            if !quiet {
                 println!("{}", resp.text().unwrap());
             }
             if status.is_client_error() || status.is_server_error() {
@@ -84,7 +140,7 @@ fn main() {
             }
         }
         Err(e) => {
-            if !opts.quiet {
+            if !quiet {
                 println!("{}", e);
             }
             std::process::exit(1);

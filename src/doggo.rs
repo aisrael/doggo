@@ -16,6 +16,3 @@ pub struct Context {
 pub trait Executable {
     fn execute(&self, context: &Context) -> Result<Response>;
 }
-
-#[derive(Debug, Default)]
-pub struct CommandResult {}

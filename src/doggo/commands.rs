@@ -1,10 +1,24 @@
 use crate::doggo::{Context, Executable};
 use anyhow::Result;
-use clap::Clap;
 use reqwest::blocking::Response;
 use std::fs::File;
 use std::io::prelude::*;
 
+mod metric;
+
+pub use metric::PostMetric;
+
+/// Returns the number of seconds since UNIX_EPOCH
+/// See https://doc.rust-lang.org/std/time/struct.SystemTime.html#examples
+pub fn unix_timestamp() -> u64 {
+    use std::time::SystemTime;
+    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(n) => n.as_secs(),
+        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+    }
+}
+
+/// Builds a reqwest ClientBuilder from the given doggo::Context
 fn reqwest_client_builder_from_context(
     context: &Context,
 ) -> Result<reqwest::blocking::ClientBuilder> {
@@ -29,7 +43,7 @@ fn reqwest_client_builder_from_context(
 }
 
 /// Verify connectivity by attempting to authenticate with the Datadog HTTP API
-#[derive(Clap, Default)]
+#[derive(Default)]
 pub struct Authenticate {}
 
 impl Executable for Authenticate {
