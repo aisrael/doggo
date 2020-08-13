@@ -11,6 +11,7 @@ pub struct Context {
     pub api_key: String,
     pub app_key: Option<String>,
     pub cacert_file: Option<PathBuf>,
+    pub verbose: bool,
 }
 
 pub trait Executable {

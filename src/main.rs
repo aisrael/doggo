@@ -20,6 +20,10 @@ struct Opts {
     #[clap(long)]
     app_key: Option<String>,
 
+    /// verbose
+    #[clap(short, long)]
+    verbose: bool,
+
     /// quiet (suppress output)
     #[clap(short, long)]
     quiet: bool,
@@ -103,6 +107,7 @@ fn build_context_from_opts(opts: &Opts) -> Context {
         api_key: api_key,
         app_key: app_key,
         cacert_file: opts.cacert.clone(),
+        verbose: opts.verbose,
     }
 }
 
@@ -110,15 +115,12 @@ fn executable_from_opts(opts: Opts) -> Box<dyn Executable> {
     match opts.command {
         Command::Authenticate => Box::new(doggo::commands::Authenticate::default()),
         Command::Metric(metric) => match metric.subcommand {
-            MetricSubcommand::Post(post) => {
-                let hostname = "ada-aisrael.local".into();
-                Box::new(doggo::commands::PostMetric {
-                    host: hostname,
-                    metric_type: post.metric_type,
-                    name: post.name,
-                    value: post.value,
-                })
-            }
+            MetricSubcommand::Post(post) => Box::new(doggo::commands::PostMetric {
+                host: post.host,
+                metric_type: post.metric_type,
+                metric_name: post.name,
+                value: post.value,
+            }),
         },
     }
 }
