@@ -12,15 +12,17 @@ struct Opts {
     #[clap(long, parse(from_os_str))]
     cacert: Option<PathBuf>,
 
-    /// your API key, from https://app.datadoghq.com/account/settings#api.
-    /// You can also set the environment variables DATADOG_API_KEY or DD_API_KEY
+    /// your Datadog API key. You can also set the environment variables DATADOG_API_KEY or DD_API_KEY
     #[clap(long)]
     api_key: Option<String>,
 
-    /// your Application key, from https://app.datadoghq.com/account/settings#api.
-    /// You can also set the environment variables DATADOG_APP_KEY or DD_APP_KEY
+    /// your Datadog application key. You can also set the environment variables DATADOG_APP_KEY or DD_APP_KEY
     #[clap(long)]
     app_key: Option<String>,
+
+    /// quiet (suppress output)
+    #[clap(short, long)]
+    quiet: bool,
 
     /// the command to execute
     #[clap(subcommand)]
@@ -72,7 +74,20 @@ fn main() {
     };
 
     match command.execute(&context) {
-        Ok(s) => println!("{}", s),
-        Err(e) => println!("{}", e),
+        Ok(resp) => {
+            let status = resp.status();
+            if !opts.quiet {
+                println!("{}", resp.text().unwrap());
+            }
+            if status.is_client_error() || status.is_server_error() {
+                std::process::exit(1);
+            }
+        }
+        Err(e) => {
+            if !opts.quiet {
+                println!("{}", e);
+            }
+            std::process::exit(1);
+        }
     }
 }

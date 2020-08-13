@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::Clap;
+use reqwest::blocking::Response;
 use std::path::PathBuf;
 
 pub mod commands;
@@ -14,5 +14,8 @@ pub struct Context {
 }
 
 pub trait Executable {
-    fn execute(&self, context: &Context) -> Result<String>;
+    fn execute(&self, context: &Context) -> Result<Response>;
 }
+
+#[derive(Debug, Default)]
+pub struct CommandResult {}

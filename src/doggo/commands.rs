@@ -1,7 +1,7 @@
 use crate::doggo::{Context, Executable};
 use anyhow::Result;
 use clap::Clap;
-use std::collections::HashMap;
+use reqwest::blocking::Response;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -33,15 +33,13 @@ fn reqwest_client_builder_from_context(
 pub struct Authenticate {}
 
 impl Executable for Authenticate {
-    fn execute(&self, context: &Context) -> Result<String> {
+    fn execute(&self, context: &Context) -> Result<Response> {
         let builder = reqwest_client_builder_from_context(context)?;
         let client = &builder.build()?;
         let resp = client
             .get("https://api.datadoghq.com/api/v1/validate")
             .header("DD-API-KEY", &context.api_key)
-            .send()?
-            .json::<HashMap<String, serde_json::value::Value>>()?;
-        println!("{:#?}", resp);
-        Ok(String::from(""))
+            .send()?;
+        Ok(resp)
     }
 }
