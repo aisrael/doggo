@@ -1,3 +1,5 @@
+use anyhow::Result;
+use clap::Clap;
 use std::path::PathBuf;
 
 pub mod commands;
@@ -7,5 +9,10 @@ pub mod commands;
 #[derive(Debug, Default)]
 pub struct Context {
     pub api_key: String,
+    pub app_key: Option<String>,
     pub cacert_file: Option<PathBuf>,
+}
+
+pub trait Executable {
+    fn execute(&self, context: &Context) -> Result<String>;
 }

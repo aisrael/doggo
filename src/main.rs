@@ -1,10 +1,7 @@
 mod doggo;
 
 use clap::Clap;
-use doggo::Context;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::prelude::*;
+use doggo::{Context, Executable};
 use std::path::PathBuf;
 
 /// A binary Datadog API client
@@ -17,66 +14,65 @@ struct Opts {
 
     /// your API key, from https://app.datadoghq.com/account/settings#api.
     /// You can also set the environment variables DATADOG_API_KEY or DD_API_KEY
-    #[clap(short, long)]
+    #[clap(long)]
     api_key: Option<String>,
+
+    /// your Application key, from https://app.datadoghq.com/account/settings#api.
+    /// You can also set the environment variables DATADOG_APP_KEY or DD_APP_KEY
+    #[clap(long)]
+    app_key: Option<String>,
+
+    /// the command to execute
+    #[clap(subcommand)]
+    command: Command,
 }
 
-fn build_context_from_opts() -> Context {
-    let opts: Opts = Opts::parse();
+/// The command to execute
+#[derive(Clap)]
+pub enum Command {
+    #[clap()]
+    Authenticate,
+}
 
-    let context = if let Some(api_key) = opts.api_key {
-        Context {
-            api_key: api_key,
-            ..Default::default()
-        }
+fn build_context_from_opts(opts: &Opts) -> Context {
+    let api_key = if let Some(api_key) = &opts.api_key {
+        api_key.clone()
     } else if let Ok(api_key) = std::env::var("DATADOG_API_KEY") {
-        Context {
-            api_key: api_key,
-            ..Default::default()
-        }
+        api_key
     } else if let Ok(api_key) = std::env::var("DD_API_KEY") {
-        Context {
-            api_key: api_key,
-            ..Default::default()
-        }
+        api_key
     } else {
         println!("No --api-key provided and neither $DATADOG_API_KEY nor $DD_API_KEY are set!");
         std::process::exit(1);
     };
 
+    let app_key = if let Some(app_key) = &opts.app_key {
+        Some(app_key.clone())
+    } else if let Ok(app_key) = std::env::var("DATADOG_APP_KEY") {
+        Some(app_key)
+    } else if let Ok(app_key) = std::env::var("DD_APP_KEY") {
+        Some(app_key)
+    } else {
+        None
+    };
+
     Context {
-        cacert_file: opts.cacert,
-        ..context
+        api_key: api_key,
+        app_key: app_key,
+        cacert_file: opts.cacert.clone(),
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let context = build_context_from_opts();
+fn main() {
+    let opts: Opts = Opts::parse();
+    let context = build_context_from_opts(&opts);
 
-    let mut builder = reqwest::blocking::Client::builder();
-    if let Some(cacert_file) = context.cacert_file {
-        let cacert_str = cacert_file.to_string_lossy();
-        println!("cacert: {}", cacert_str);
+    let command = match opts.command {
+        Command::Authenticate => doggo::commands::Authenticate::default(),
+    };
 
-        let mut buf = Vec::new();
-        File::open(&cacert_file)?.read_to_end(&mut buf)?;
-        println!("vec: {}", buf.len());
-        if let Ok(cert) = reqwest::Certificate::from_pem(&buf) {
-            builder = builder.add_root_certificate(cert);
-        } else if let Ok(cert) = reqwest::Certificate::from_der(&buf) {
-            builder = builder.add_root_certificate(cert);
-        } else {
-            println!("Error reading certificate {}!", cacert_str);
-            std::process::exit(1);
-        }
+    match command.execute(&context) {
+        Ok(s) => println!("{}", s),
+        Err(e) => println!("{}", e),
     }
-
-    let client = &builder.use_rustls_tls().build()?;
-    let resp = client
-        .get("https://api.datadoghq.com/api/v1/validate")
-        .header("DD-API-KEY", context.api_key)
-        .send()?
-        .json::<HashMap<String, serde_json::value::Value>>()?;
-    println!("{:#?}", resp);
-    Ok(())
 }
