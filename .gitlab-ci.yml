@@ -11,9 +11,11 @@ build:
   script:
     - rustup target add x86_64-unknown-linux-musl
     - cargo build --target x86_64-unknown-linux-musl && cargo build --target x86_64-unknown-linux-musl --release
+  cache:
+    - target/
   artifacts:
     paths:
-      - target/release/doggo
+      - target/x86_64-unknown-linux-musl/release/doggo
 
 build_image:
   stage: docker
