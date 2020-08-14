@@ -71,6 +71,9 @@ struct Post {
     /// metric value
     #[clap()]
     value: String,
+    /// comma-separated list of tags
+    #[clap(short, long)]
+    tags: Vec<String>,
 }
 
 fn build_context_from_opts(opts: &Opts) -> Context {
@@ -120,6 +123,7 @@ fn executable_from_opts(opts: Opts) -> Box<dyn Executable> {
                 metric_type: post.metric_type,
                 metric_name: post.name,
                 value: post.value,
+                tags: Some(post.tags),
             }),
         },
     }

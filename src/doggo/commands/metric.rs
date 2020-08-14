@@ -2,6 +2,7 @@ use crate::doggo::{Context, Executable};
 use anyhow::Result;
 use reqwest::blocking::Response;
 use serde_json::json;
+use std::collections::HashMap;
 
 /// Submit a metric
 #[derive(Default)]
@@ -10,33 +11,22 @@ pub struct PostMetric {
     pub metric_type: String,
     pub metric_name: String,
     pub value: String,
+    pub tags: Option<Vec<String>>,
 }
 
 impl PostMetric {
     fn build_body(&self, _context: &Context) -> String {
         let timestamp = super::unix_timestamp();
-        let series_point = if let Some(host) = &self.host {
-            json!(
-                {
-                    "host": host,
-                    "metric": self.metric_name,
-                    "points":[
-                        [timestamp, self.value]
-                    ],
-                    "tags": "source:doggo",
-                    "type": self.metric_type
-                }
-            )
-        } else {
-            json!({
-                "metric": self.metric_name,
-                "points":[
-                    [timestamp, self.value]
-                ],
-                "tags": "source:doggo",
-                "type": self.metric_type
-            })
-        };
+        let mut series_point: HashMap<String, serde_json::Value> = HashMap::new();
+        if let Some(host) = &self.host {
+            series_point.insert("host".to_owned(), json!(host));
+        }
+        series_point.insert("metric".to_owned(), json!(self.metric_name));
+        series_point.insert("type".to_owned(), json!(self.metric_type));
+        series_point.insert("points".to_owned(), json!([[timestamp, self.value]]));
+        if let Some(tags) = &self.tags {
+            series_point.insert("tags".to_owned(), json!(tags));
+        }
         let json = json!({ "series": [series_point] });
         json.to_string()
     }
