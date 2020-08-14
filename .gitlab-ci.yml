@@ -1,10 +1,26 @@
 stages:
   - build
+  - docker
 
-build_using_docker:
+build:
   stage: build
   except:
+    - changes:
+      - "README.md"
+  image: clux/muslrust:1.45.2
+  script:
+    - rustup target add x86_64-unknown-linux-musl
+    - cargo build --target x86_64-unknown-linux-musl && cargo build --target x86_64-unknown-linux-musl --release
+  artifacts:
+    paths:
+      - target/release/doggo
+
+build_image:
+  stage: docker
+  except:
     - tags
+    - changes:
+      - "README.md"
   image: docker:19.03.12
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
@@ -24,10 +40,12 @@ build_using_docker:
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker push $CI_REGISTRY_IMAGE:latest
 
-build_tags_using_docker:
-  stage: build
+build_tagged_image:
+  stage: docker
   only:
     - tags
+    - changes:
+      - "README.md"
   image: docker:19.03.12
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
