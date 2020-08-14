@@ -20,6 +20,8 @@ build:
 
 build_image:
   stage: docker
+  dependencies:
+    - build
   except:
     refs:
       - tags
@@ -46,6 +48,8 @@ build_image:
 
 build_tagged_image:
   stage: docker
+  dependencies:
+    - build
   only:
     - tags
   except:
