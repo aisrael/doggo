@@ -5,7 +5,7 @@ stages:
 build:
   stage: build
   except:
-    - changes:
+    changes:
       - "README.md"
   image: clux/muslrust:1.45.2
   script:
@@ -18,8 +18,9 @@ build:
 build_image:
   stage: docker
   except:
-    - tags
-    - changes:
+    refs:
+      - tags
+    changes:
       - "README.md"
   image: docker:19.03.12
   variables:
@@ -44,7 +45,8 @@ build_tagged_image:
   stage: docker
   only:
     - tags
-    - changes:
+  except:
+    changes:
       - "README.md"
   image: docker:19.03.12
   variables:
