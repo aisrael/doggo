@@ -4,9 +4,6 @@ stages:
 
 build:
   stage: build
-  except:
-    changes:
-      - "README.md"
   image: clux/muslrust:1.45.2
   script:
     - rustup target add x86_64-unknown-linux-musl
@@ -19,7 +16,7 @@ build:
     paths:
       - target/x86_64-unknown-linux-musl/release/doggo
 
-build_image:
+docker_image:
   stage: docker
   dependencies:
     - build
@@ -52,7 +49,7 @@ build_image:
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker push $CI_REGISTRY_IMAGE:latest
 
-build_tagged_image:
+docker_tagged_image:
   stage: docker
   dependencies:
     - build
